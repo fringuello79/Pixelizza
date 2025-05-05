@@ -1,0 +1,604 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <title>Pixelizza - converti in pixelart</title>
+  <style>
+    body {
+      background: #f7f7f7;
+      font-family: "Press Start 2P", Arial, sans-serif; /* Font in stile pixel art */
+      text-align: center;
+      padding: 30px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    h1 {
+      color: #AA0000; /* Rosso VGA256 */
+      text-shadow: 2px 2px 0px #550000, -2px -2px 0px #550000; /* Contorno rosso scurissimo */
+      font-size: 24px;
+      margin-bottom: 20px;
+    }
+    .container {
+      display: flex;
+      justify-content: space-between;
+      width: 100%;
+      max-width: 1200px;
+    }
+    .controls {
+      text-align: left;
+      width: 40%; /* 2/5 della larghezza */
+    }
+    .image-preview {
+      width: 60%; /* 3/5 della larghezza */
+      border: 1px solid #333;
+      padding: 10px;
+      background: #fff;
+      text-align: center;
+    }
+    #outputCanvas {
+      margin-top: 10px;
+      border: 1px solid #333;
+      cursor: crosshair; /* Cambia il cursore per indicare la selezione */
+      max-width: 100%;
+    }
+    .vga-color-palette {
+      display: grid;
+      grid-template-columns: repeat(32, 15px); /* 32 colonne per 128 colori */
+      gap: 4px;
+      justify-content: center;
+      margin-top: 10px;
+    }
+    .vga-color {
+      width: 15px; /* Ridotto da 20px */
+      height: 15px; /* Ridotto da 20px */
+      cursor: pointer;
+      border: 1px solid #333;
+    }
+    input[type="range"], button {
+      display: block;
+      margin-bottom: 10px;
+    }
+    input[type="checkbox"] {
+      vertical-align: middle;
+      margin-right: 10px;
+    }
+    label {
+      display: flex;
+      align-items: center;
+      font-family: "Press Start 2P", Arial, sans-serif;
+      font-size: 12px;
+      margin-bottom: 10px;
+    }
+    .responsive-label {
+      display: flex;
+      flex-wrap: wrap;
+    }
+    #resizeInfo {
+      font-size: 12px;
+      margin-left: 10px;
+    }
+  </style>
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+</head>
+<body>
+  <h1>Pixelizza - converti in pixelart</h1>
+  <div class="container">
+    <div class="controls">
+      <!-- Selettore file per immagini JPG o PNG -->
+      <input type="file" id="imageInput" accept="image/png, image/jpeg">
+      
+      <!-- Slider per definire la dimensione del "blocco" pixel -->
+      <label for="pixelSize" class="responsive-label">
+        <input type="range" id="pixelSize" min="1" max="50" value="10">
+        Dimensione Pixel: <span id="pixelSizeValue">10</span>
+      </label>
+      
+      <!-- Slider per ridurre le dimensioni dell'immagine -->
+      <label for="resizeFactor" class="responsive-label">
+        <input type="range" id="resizeFactor" min="10" max="100" value="100">
+        Ridimensiona immagine (%): <span id="resizeFactorValue">100</span>
+        <span id="resizeInfo">(N/A)</span>
+      </label>
+      
+      <!-- Checkbox per abilitare il dithering -->
+      <label for="dithering">
+        <input type="checkbox" id="dithering">
+        Applica dithering (Floyd-Steinberg)
+      </label>
+      
+      <!-- Slider per regolare il contrasto -->
+      <label for="contrast" class="responsive-label">
+        <input type="range" id="contrast" min="50" max="150" value="100">
+        Contrasto (%): <span id="contrastValue">100</span>
+      </label>
+      
+      <!-- Checkbox per stili di pixel art -->
+      <label for="gameboyStyle">
+        <input type="checkbox" id="gameboyStyle" class="styleCheckbox">
+        Stile Gameboy
+      </label>
+      <label for="c64Style">
+        <input type="checkbox" id="c64Style" class="styleCheckbox">
+        Stile Commodore 64
+      </label>
+      <label for="amigaStyle">
+        <input type="checkbox" id="amigaStyle" class="styleCheckbox">
+        Stile Amiga 500
+      </label>
+      <label for="monkeyIslandStyle">
+        <input type="checkbox" id="monkeyIslandStyle" class="styleCheckbox">
+        Stile Monkey Island 2
+      </label>
+      <label for="msdosStyle">
+        <input type="checkbox" id="msdosStyle" class="styleCheckbox">
+        Stile MSDOS (verde e verdescuro)
+      </label>
+      <label for="sixteenColorStyle">
+        <input type="checkbox" id="sixteenColorStyle" class="styleCheckbox">
+        Stile 16 colori
+      </label>
+      
+      <!-- Checkbox per trasformare l'immagine in negativo -->
+      <label for="negative">
+        <input type="checkbox" id="negative">
+        Trasforma in negativo
+      </label>
+      
+      <!-- Checkbox per invertire bianco e nero -->
+      <label for="invertBW">
+        <input type="checkbox" id="invertBW">
+        Inverti bianco e nero
+      </label>
+      
+      <!-- Checkbox per evidenziare il reticolato -->
+      <label for="highlightGrid">
+        <input type="checkbox" id="highlightGrid">
+        Evidenzia reticolato
+      </label>
+      
+      <!-- Bottone per scaricare l'immagine -->
+      <button id="downloadBtn">Download Pixel Art</button>
+      
+      <!-- Bottone per resettare la pagina -->
+      <button id="resetBtn">Reset</button>
+      
+      <!-- Messaggi guida per la selezione dei colori -->
+      <p id="colorMessage" style="font-family: 'Press Start 2P', Arial, sans-serif; font-size: 12px; color: #333;"></p>
+      <button id="startColorReplace">Sostituisci un colore</button>
+      <div id="vgaPalette" class="vga-color-palette" style="display: none;">
+        <!-- Generazione dinamica dei colori VGA -->
+      </div>
+    </div>
+    <div class="image-preview">
+      <canvas id="outputCanvas"></canvas>
+    </div>
+  </div>
+
+  <script>
+    // Variabile globale per salvare l'immagine corrente
+    let currentImage = null;
+
+    // Generazione della palette personalizzata (216 colori)
+    const palette = [];
+    const levels = [0, 51, 102, 153, 204, 255];
+    for (let r of levels) {
+      for (let g of levels) {
+        for (let b of levels) {
+          palette.push([r, g, b]);
+        }
+      }
+    }
+
+    // Funzione per cercare il colore della palette più vicino in base alla distanza euclidea
+    function getNearestPaletteColor(r, g, b, palette) {
+      let minDist = Infinity;
+      let bestColor = [r, g, b];
+      for (let i = 0; i < palette.length; i++) {
+        let pr = palette[i][0], pg = palette[i][1], pb = palette[i][2];
+        let dist = (r - pr) * (r - pr) + (g - pg) * (g - pg) + (b - pb) * (b - pb);
+        if (dist < minDist) {
+          minDist = dist;
+          bestColor = palette[i];
+        }
+      }
+      return bestColor;
+    }
+
+    // Funzione che limita un valore nell'intervallo [0,255]
+    function clamp(value) {
+      return Math.max(0, Math.min(255, value));
+    }
+
+    // Funzione per distribuire l'errore durante il dithering
+    function distributeError(data, x, y, width, height, errR, errG, errB, factor) {
+      if (x < 0 || x >= width || y < 0 || y >= height) return;
+      let index = (y * width + x) * 4;
+      data[index]   = clamp(data[index] + errR * factor);
+      data[index+1] = clamp(data[index+1] + errG * factor);
+      data[index+2] = clamp(data[index+2] + errB * factor);
+    }
+
+    // Funzione che applica il dithering Floyd-Steinberg (includendo contrasto e palette personalizzata)
+    function applyDithering(imageData, contrastFactor, useCustomPalette, palette, width, height) {
+      let data = imageData.data;
+      for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+          let idx = (y * width + x) * 4;
+          let oldR = data[idx];
+          let oldG = data[idx+1];
+          let oldB = data[idx+2];
+          // Applica il contrasto
+          let rAdjusted = clamp((oldR - 128) * contrastFactor + 128);
+          let gAdjusted = clamp((oldG - 128) * contrastFactor + 128);
+          let bAdjusted = clamp((oldB - 128) * contrastFactor + 128);
+          
+          let newR, newG, newB;
+          if (useCustomPalette) {
+            [newR, newG, newB] = getNearestPaletteColor(rAdjusted, gAdjusted, bAdjusted, palette);
+          } else {
+            newR = Math.round(rAdjusted / 51) * 51;
+            newG = Math.round(gAdjusted / 51) * 51;
+            newB = Math.round(bAdjusted / 51) * 51;
+          }
+          data[idx]   = newR;
+          data[idx+1] = newG;
+          data[idx+2] = newB;
+          
+          let errR = rAdjusted - newR;
+          let errG = gAdjusted - newG;
+          let errB = bAdjusted - newB;
+          distributeError(data, x+1, y, width, height, errR, errG, errB, 7/16);
+          distributeError(data, x-1, y+1, width, height, errR, errG, errB, 3/16);
+          distributeError(data, x, y+1, width, height, errR, errG, errB, 5/16);
+          distributeError(data, x+1, y+1, width, height, errR, errG, errB, 1/16);
+        }
+      }
+    }
+
+    // Funzione per deselezionare altre checkbox di stile
+    function uncheckOtherStyles(selectedId) {
+      document.querySelectorAll('.styleCheckbox').forEach(checkbox => {
+        if (checkbox.id !== selectedId) {
+          checkbox.checked = false;
+        }
+      });
+    }
+
+    // Listener per le checkbox di stile
+    document.querySelectorAll('.styleCheckbox').forEach(checkbox => {
+      checkbox.addEventListener('change', function(e) {
+        if (e.target.checked) {
+          uncheckOtherStyles(e.target.id);
+        }
+        if (currentImage) {
+          convertToPixelArt(currentImage);
+        }
+      });
+    });
+
+    // Listener per la checkbox del negativo
+    document.getElementById('negative').addEventListener('change', function(e) {
+      if (currentImage) {
+        convertToPixelArt(currentImage);
+      }
+    });
+
+    // Listener per l'input della dimensione del pixel: aggiorna il valore mostrato e rielabora se serve
+    document.getElementById('pixelSize').addEventListener('input', function(e) {
+      const pixelValue = e.target.value;
+      document.getElementById('pixelSizeValue').innerText = pixelValue;
+      if (currentImage) {
+        convertToPixelArt(currentImage);
+      }
+    });
+
+    // Listener per lo slider del contrasto
+    document.getElementById('contrast').addEventListener('input', function(e) {
+      document.getElementById('contrastValue').innerText = e.target.value;
+      if (currentImage) {
+        convertToPixelArt(currentImage);
+      }
+    });
+
+    // Listener per la checkbox del dithering
+    document.getElementById('dithering').addEventListener('change', function(e) {
+      if (currentImage) {
+        convertToPixelArt(currentImage);
+      }
+    });
+
+    // Listener per lo slider di ridimensionamento
+    document.getElementById('resizeFactor').addEventListener('input', function(e) {
+      const resizeValue = e.target.value;
+      document.getElementById('resizeFactorValue').innerText = resizeValue;
+      if (currentImage) {
+        const newWidth = Math.floor(currentImage.width * (resizeValue / 100));
+        const newHeight = Math.floor(currentImage.height * (resizeValue / 100));
+        document.getElementById('resizeInfo').innerText = `(${newWidth}x${newHeight})`;
+        convertToPixelArt(currentImage);
+      } else {
+        document.getElementById('resizeInfo').innerText = "(N/A)";
+      }
+    });
+
+    // Listener per il download dell'immagine (scarica il canvas come PNG)
+    document.getElementById('downloadBtn').addEventListener('click', function() {
+      const canvas = document.getElementById('outputCanvas');
+      const link = document.createElement('a');
+      link.download = 'pixelart.png';
+      link.href = canvas.toDataURL();
+      link.click();
+    });
+
+    // Listener per il bottone di reset
+    document.getElementById('resetBtn').addEventListener('click', function() {
+      location.reload();
+    });
+
+    // Listener per la checkbox "Inverti bianco e nero"
+    document.getElementById('invertBW').addEventListener('change', function(e) {
+      if (currentImage) {
+        convertToPixelArt(currentImage);
+      }
+    });
+
+    // Listener per la checkbox "Evidenzia reticolato"
+    document.getElementById('highlightGrid').addEventListener('change', function(e) {
+      if (currentImage) {
+        convertToPixelArt(currentImage);
+      }
+    });
+
+    // Carica l'immagine selezionata dall'utente
+    document.getElementById('imageInput').addEventListener('change', function(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function(evt) {
+        const img = new Image();
+        img.onload = function() {
+          currentImage = img;
+          convertToPixelArt(img);
+        }
+        img.src = evt.target.result;
+      }
+      reader.readAsDataURL(file);
+    });
+
+    /**
+     * Converte l'immagine in pixel art con effetto VGA256.
+     * Procedura:
+     * 1. Riduce l'immagine su un canvas offscreen a una risoluzione inferiore,
+     *    in base al valore del cursore della dimensione del pixel.
+     * 2. Applica:
+     *    - Aggiustamento del contrasto;
+     *    - Quantizzazione tramite palette personalizzata (se selezionata) oppure
+     *      quantizzazione semplice (valori multipli di 51);
+     *    - Opzionalmente il dithering (Floyd-Steinberg) con distribuzione dell'errore.
+     * 3. Scala l'immagine processata sul canvas principale, mantenendo l'effetto pixelato.
+     */
+    function convertToPixelArt(img) {
+      const pixelSize = parseInt(document.getElementById("pixelSize").value);
+      const resizeFactor = parseInt(document.getElementById("resizeFactor").value) / 100;
+      const smallWidth = Math.max(1, Math.floor((img.width * resizeFactor) / pixelSize));
+      const smallHeight = Math.max(1, Math.floor((img.height * resizeFactor) / pixelSize));
+
+      const offCanvas = document.createElement('canvas');
+      offCanvas.width = smallWidth;
+      offCanvas.height = smallHeight;
+      const offCtx = offCanvas.getContext('2d');
+      offCtx.imageSmoothingEnabled = false;
+      offCtx.drawImage(img, 0, 0, smallWidth, smallHeight);
+
+      let imageData = offCtx.getImageData(0, 0, smallWidth, smallHeight);
+      let data = imageData.data;
+
+      const contrastValue = parseInt(document.getElementById("contrast").value);
+      const contrastFactor = contrastValue / 100;
+      const invertBW = document.getElementById("invertBW").checked;
+      const highlightGrid = document.getElementById("highlightGrid").checked;
+      const negative = document.getElementById("negative").checked;
+
+      // Stili di pixel art
+      const gameboyStyle = document.getElementById("gameboyStyle").checked;
+      const c64Style = document.getElementById("c64Style").checked;
+      const amigaStyle = document.getElementById("amigaStyle").checked;
+      const monkeyIslandStyle = document.getElementById("monkeyIslandStyle").checked;
+      const msdosStyle = document.getElementById("msdosStyle").checked;
+      const sixteenColorStyle = document.getElementById("sixteenColorStyle").checked;
+
+      // Palette per stili specifici
+      const gameboyPalette = [[0, 0, 0], [85, 85, 85], [170, 170, 170], [255, 255, 255]];
+      const c64Palette = [[0, 0, 0], [255, 255, 255], [136, 0, 0], [170, 255, 238], [204, 68, 204], [0, 204, 85], [0, 0, 170], [238, 238, 119]];
+      const amigaPalette = palette; // Usa la palette VGA256
+      const monkeyIslandPalette = [[0, 0, 0], [34, 32, 52], [69, 40, 60], [102, 57, 49], [143, 86, 59], [223, 113, 38], [217, 160, 102], [238, 195, 154]];
+      const msdosPalette = [[0, 128, 0], [0, 255, 0]]; // Verde scuro e verde chiaro
+      const sixteenColorPalette = [
+        [0, 0, 0], [128, 0, 0], [0, 128, 0], [128, 128, 0],
+        [0, 0, 128], [128, 0, 128], [0, 128, 128], [192, 192, 192],
+        [128, 128, 128], [255, 0, 0], [0, 255, 0], [255, 255, 0],
+        [0, 0, 255], [255, 0, 255], [0, 255, 255], [255, 255, 255]
+      ];
+
+      let selectedPalette = palette;
+      if (gameboyStyle) selectedPalette = gameboyPalette;
+      if (c64Style) selectedPalette = c64Palette;
+      if (amigaStyle) selectedPalette = amigaPalette;
+      if (monkeyIslandStyle) selectedPalette = monkeyIslandPalette;
+      if (msdosStyle) selectedPalette = msdosPalette;
+      if (sixteenColorStyle) selectedPalette = sixteenColorPalette;
+
+      for (let i = 0; i < data.length; i += 4) {
+        let r = clamp((data[i] - 128) * contrastFactor + 128);
+        let g = clamp((data[i + 1] - 128) * contrastFactor + 128);
+        let b = clamp((data[i + 2] - 128) * contrastFactor + 128);
+
+        if (negative) {
+          r = 255 - r;
+          g = 255 - g;
+          b = 255 - b;
+        }
+
+        if (invertBW) {
+          if (r === 255 && g === 255 && b === 255) {
+            r = g = b = 0;
+          } else if (r === 0 && g === 0 && b === 0) {
+            r = g = b = 255;
+          }
+        }
+
+        [r, g, b] = getNearestPaletteColor(r, g, b, selectedPalette);
+
+        data[i] = r;
+        data[i + 1] = g;
+        data[i + 2] = b;
+      }
+
+      offCtx.putImageData(imageData, 0, 0);
+
+      const outputCanvas = document.getElementById('outputCanvas');
+      outputCanvas.width = smallWidth * pixelSize;
+      outputCanvas.height = smallHeight * pixelSize;
+      const outCtx = outputCanvas.getContext('2d');
+      outCtx.imageSmoothingEnabled = false;
+      outCtx.drawImage(offCanvas, 0, 0, outputCanvas.width, outputCanvas.height);
+
+      if (highlightGrid) {
+        outCtx.strokeStyle = "rgba(0, 0, 0, 0.2)";
+        for (let x = 0; x < outputCanvas.width; x += pixelSize) {
+          outCtx.beginPath();
+          outCtx.moveTo(x, 0);
+          outCtx.lineTo(x, outputCanvas.height);
+          outCtx.stroke();
+        }
+        for (let y = 0; y < outputCanvas.height; y += pixelSize) {
+          outCtx.beginPath();
+          outCtx.moveTo(0, y);
+          outCtx.lineTo(outputCanvas.width, y);
+          outCtx.stroke();
+        }
+      }
+    }
+
+    const vgaColors = [
+      "#000000", "#0000AA", "#00AA00", "#00AAAA", "#AA0000", "#AA00AA", "#AA5500", "#AAAAAA",
+      "#555555", "#5555FF", "#55FF55", "#55FFFF", "#FF5555", "#FF55FF", "#FFFF55", "#FFFFFF",
+      "#000055", "#0000FF", "#005500", "#0055FF", "#550000", "#550055", "#5500AA", "#5555AA",
+      "#005555", "#00FFFF", "#550055", "#FF00FF", "#AA5500", "#FFAA00", "#FFFFAA", "#55AAFF",
+      "#0055AA", "#55AA55", "#AAFF55", "#FFAA55", "#FFAAAA", "#AAFFAA", "#AAAAFF", "#FF55AA",
+      "#AA55FF", "#55FFAA", "#55FFFF", "#AAFFFF", "#FFAAFF", "#FFFFFF",
+      "#111111", "#222222", "#333333", "#444444", "#555555", "#666666", "#777777", "#888888",
+      "#999999", "#AAAAAA", "#BBBBBB", "#CCCCCC", "#DDDDDD", "#EEEEEE", "#FFFFFF", "#FF0000",
+      "#00FF00", "#0000FF", "#FFFF00", "#FF00FF", "#00FFFF", "#800000", "#808000", "#008000",
+      "#800080", "#008080", "#000080", "#C0C0C0", "#808080", "#400000", "#404000", "#004000",
+      "#400040", "#004040", "#000040", "#200000", "#202000", "#002000", "#200020", "#002020",
+      "#000020", "#600000", "#606000", "#006000", "#600060", "#006060", "#000060", "#A00000",
+      "#A0A000", "#00A000", "#A000A0", "#00A0A0", "#0000A0", "#E00000", "#E0E000", "#00E000",
+      "#E000E0", "#00E0E0", "#0000E0", "#FF4000", "#FF8040", "#FFC080", "#FFFFC0", "#C0FFC0",
+      "#80FF80", "#40FF40", "#00FF00", "#00FF40", "#00FF80", "#00FFC0", "#00FFFF", "#40FFFF",
+      "#80FFFF", "#C0FFFF", "#FFFFFF"
+    ];
+
+    let colorToReplace = null;
+    let isSelectingColorToReplace = false;
+    let isSelectingReplacementColor = false;
+
+    // Listener per il pulsante "Sostituisci un colore"
+    document.getElementById('startColorReplace').addEventListener('click', function() {
+      document.getElementById('colorMessage').innerText = "Scegli il colore da sostituire";
+      isSelectingColorToReplace = true;
+      isSelectingReplacementColor = false;
+      document.getElementById('vgaPalette').style.display = "none";
+    });
+
+    // Listener per il canvas per selezionare i colori
+    document.getElementById('outputCanvas').addEventListener('click', function(e) {
+      const canvas = e.target;
+      const ctx = canvas.getContext('2d');
+      const rect = canvas.getBoundingClientRect();
+
+      // Calcola le coordinate corrette del clic rispetto all'immagine ridimensionata
+      const scaleX = canvas.width / rect.width;
+      const scaleY = canvas.height / rect.height;
+      const x = Math.floor((e.clientX - rect.left) * scaleX);
+      const y = Math.floor((e.clientY - rect.top) * scaleY);
+
+      const pixelData = ctx.getImageData(x, y, 1, 1).data;
+
+      if (isSelectingColorToReplace) {
+        colorToReplace = [pixelData[0], pixelData[1], pixelData[2]];
+        document.getElementById('colorMessage').innerText = "Scegli il nuovo colore";
+        isSelectingColorToReplace = false;
+        isSelectingReplacementColor = true;
+        document.getElementById('vgaPalette').style.display = "grid";
+      }
+    });
+
+    // Genera la tavolozza VGA
+    const vgaPalette = document.getElementById('vgaPalette');
+    vgaColors.forEach(color => {
+      const colorDiv = document.createElement('div');
+      colorDiv.className = 'vga-color';
+      colorDiv.style.backgroundColor = color;
+      colorDiv.addEventListener('click', function() {
+        if (isSelectingReplacementColor) {
+          const replacementColor = hexToRgb(color);
+          replaceColor(colorToReplace, replacementColor);
+          document.getElementById('colorMessage').innerText = "";
+          isSelectingReplacementColor = false;
+          document.getElementById('vgaPalette').style.display = "none";
+        }
+      });
+      vgaPalette.appendChild(colorDiv);
+    });
+
+    /**
+     * Converte un colore HEX in RGB.
+     * @param {string} hex - Colore in formato HEX.
+     * @returns {Array} Colore in formato RGB [r, g, b].
+     */
+    function hexToRgb(hex) {
+      const bigint = parseInt(hex.slice(1), 16);
+      const r = (bigint >> 16) & 255;
+      const g = (bigint >> 8) & 255;
+      const b = bigint & 255;
+      return [r, g, b];
+    }
+
+    /**
+     * Sostituisce un colore specifico con un altro colore nell'immagine elaborata.
+     * Confronta i valori RGB con una tolleranza per migliorare la precisione.
+     * @param {Array} targetColor - Colore da sostituire [r, g, b].
+     * @param {Array} replacementColor - Colore sostitutivo [r, g, b].
+     */
+    function replaceColor(targetColor, replacementColor) {
+      const canvas = document.getElementById('outputCanvas');
+      const ctx = canvas.getContext('2d');
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const data = imageData.data;
+
+      const tolerance = 5; // Tolleranza per il confronto dei colori
+
+      for (let i = 0; i < data.length; i += 4) {
+        const r = data[i];
+        const g = data[i + 1];
+        const b = data[i + 2];
+
+        // Confronta il colore con tolleranza
+        if (
+          Math.abs(r - targetColor[0]) <= tolerance &&
+          Math.abs(g - targetColor[1]) <= tolerance &&
+          Math.abs(b - targetColor[2]) <= tolerance
+        ) {
+          data[i] = replacementColor[0];
+          data[i + 1] = replacementColor[1];
+          data[i + 2] = replacementColor[2];
+        }
+      }
+
+      ctx.putImageData(imageData, 0, 0);
+    }
+  </script>
+</body>
+</html>
